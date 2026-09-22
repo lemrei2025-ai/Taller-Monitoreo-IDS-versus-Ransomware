@@ -6,27 +6,30 @@
 # No usar \ para continuar líneas (es sintaxis bash, no Snort).
 # Se usa 'any' en lugar de $HOME_NET/$EXTERNAL_NET para no
 # depender de snort.conf.
+# Se omite 'nocase' — no compatible con todas las builds de
+# Snort 3 en Kali. El simulador envía las cadenas en el mismo
+# case exacto, por lo que no es necesario.
 # =============================================================
 
 # ─── RETO 1: Descarga del archivo de prueba EICAR ─────────────
-alert tcp any any -> any any (msg:"[LAB] Descarga EICAR - Test malware detectado"; content:"X5O!P%@AP[4"; nocase; classtype:trojan-activity; sid:9000001; rev:1;)
+alert tcp any any -> any any (msg:"[LAB] Descarga EICAR - Test malware detectado"; content:"X5O!P%@AP[4"; classtype:trojan-activity; sid:9000001; rev:2;)
 
-alert tcp any any -> any any (msg:"[LAB] Descarga - Factura_Urgente en URI"; content:"Factura_Urgente"; nocase; classtype:trojan-activity; sid:9000002; rev:1;)
+alert tcp any any -> any any (msg:"[LAB] Descarga - Factura_Urgente en URI"; content:"Factura_Urgente"; classtype:trojan-activity; sid:9000002; rev:2;)
 
 # ─── RETO 2: Tráfico de Beacon / C2 ──────────────────────────
-alert tcp any any -> any any (msg:"[LAB] Beacon C2 - User-Agent LabRansomSim"; content:"LabRansomSim"; nocase; classtype:command-and-control; sid:9000003; rev:1;)
+alert tcp any any -> any any (msg:"[LAB] Beacon C2 - User-Agent LabRansomSim"; content:"LabRansomSim"; classtype:command-and-control; sid:9000003; rev:2;)
 
-alert tcp any any -> any any (msg:"[LAB] Ransomware C2 - Ruta /beacon detectada"; content:"GET /beacon"; nocase; classtype:command-and-control; sid:9000004; rev:1;)
+alert tcp any any -> any any (msg:"[LAB] Ransomware C2 - Ruta /beacon detectada"; content:"GET /beacon"; classtype:command-and-control; sid:9000004; rev:2;)
 
-alert tcp any any -> any any (msg:"[LAB] Ransomware C2 - Consulta kill switch"; content:"GET /killswitch"; nocase; classtype:command-and-control; sid:9000005; rev:1;)
+alert tcp any any -> any any (msg:"[LAB] Ransomware C2 - Consulta kill switch"; content:"GET /killswitch"; classtype:command-and-control; sid:9000005; rev:2;)
 
 # ─── RETO 3: Script PowerShell sospechoso ────────────────────
-alert tcp any any -> any any (msg:"[LAB] Descarga de script PowerShell sospechoso"; content:".ps1"; nocase; classtype:trojan-activity; sid:9000006; rev:1;)
+alert tcp any any -> any any (msg:"[LAB] Descarga de script PowerShell sospechoso"; content:".ps1"; classtype:trojan-activity; sid:9000006; rev:2;)
 
 # ─── RETO 4: Puertos no estándar del C2 ──────────────────────
-alert tcp any any -> any 4444 (msg:"[LAB] Conexion saliente a puerto 4444 - posible C2"; classtype:command-and-control; sid:9000007; rev:1;)
+alert tcp any any -> any 4444 (msg:"[LAB] Conexion saliente a puerto 4444 - posible C2"; classtype:command-and-control; sid:9000007; rev:2;)
 
-alert tcp any 8080 -> any any (msg:"[LAB] Descarga desde servidor en puerto 8080"; classtype:trojan-activity; sid:9000008; rev:1;)
+alert tcp any 8080 -> any any (msg:"[LAB] Descarga desde servidor en puerto 8080"; classtype:trojan-activity; sid:9000008; rev:2;)
 
 # ─── RETO 5 (BONUS): Nota de rescate en tráfico de red ───────
-alert tcp any any -> any any (msg:"[LAB] BONUS - Nota de rescate detectada en trafico"; content:"LEEME_RESCATE"; nocase; classtype:trojan-activity; sid:9000009; rev:1;)
+alert tcp any any -> any any (msg:"[LAB] BONUS - Nota de rescate detectada en trafico"; content:"LEEME_RESCATE"; classtype:trojan-activity; sid:9000009; rev:2;)
