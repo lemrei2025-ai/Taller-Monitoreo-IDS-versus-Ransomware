@@ -1,6 +1,5 @@
 # 🛡️ Laboratorio: IDS y Detección de Ransomware en Kali Linux
 
-**Curso:** Ciberseguridad · Análisis de Amenazas  
 **Duración estimada:** 90–120 minutos  
 **Nivel:** Intermedio  
 **Herramientas:** Snort, iptables, tcpdump, Python 3
@@ -24,159 +23,172 @@ Al finalizar este laboratorio serás capaz de:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Red Aislada (Host-Only)                  │
+│                  Red Host-Only (aislada)                     │
 │                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │   VÍCTIMA    │    │  ANALISTA    │    │  ATACANTE    │  │
-│  │  Kali Linux  │    │  Kali Linux  │    │  Kali Linux  │  │
-│  │ 192.168.56.10│    │ 192.168.56.1 │    │192.168.56.20 │  │
-│  │              │    │              │    │              │  │
-│  │ Documentos   │    │ Snort IDS    │    │ Servidor     │  │
-│  │ señuelo      │    │ iptables FW  │    │ "malicioso"  │  │
-│  │              │    │ tcpdump      │    │ Panel C2     │  │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘  │
-│         │                   │                   │          │
-│         └───────────────────┴───────────────────┘          │
-│                       Switch virtual                        │
+│  Terminal A          Terminal B/C         Terminal D        │
+│  ┌───────────┐      ┌───────────┐        ┌───────────┐     │
+│  │ ATACANTE  │      │ ANALISTA  │        │  VÍCTIMA  │     │
+│  │           │      │           │        │           │     │
+│  │ Servidor  │◄────►│ Snort IDS │◄──────►│ Documentos│     │
+│  │ malicioso │      │ iptables  │        │ señuelo   │     │
+│  │ Panel C2  │      │ tcpdump   │        │           │     │
+│  └───────────┘      └───────────┘        └───────────┘     │
 └─────────────────────────────────────────────────────────────┘
+
+  ⚠  Todo ocurre en la misma Kali Linux usando 4 terminales.
 ```
 
-> **Nota:** En este laboratorio puedes usar una **sola Kali Linux** con múltiples terminales. Las "VMs ATACANTE y VÍCTIMA" se simulan abriendo terminales adicionales y usando la IP de loopback o de la interfaz de red local.
+> **Una sola Kali Linux** con 4 terminales abiertas es suficiente. Los roles "Atacante", "Analista" y "Víctima" se simulan en terminales separadas.
 
 ---
 
 ## ⚠️ Aviso de Seguridad
 
-> Este laboratorio usa **ÚNICAMENTE** herramientas seguras:
-> - Archivo de prueba **EICAR** (estándar de la industria para probar IDS/AV, no es malware real).
-> - Un **simulador de IOC** que solo renombra archivos señuelo y envía tráfico HTTP inofensivo.
-> - **Ningún cifrado real** se produce en ningún momento.
->
-> Ejecuta el laboratorio en una **red aislada** (modo Host-Only o Internal Network de VirtualBox/VMware). Nunca en una red corporativa o con adaptador en modo Bridge hacia Internet.
+> Este laboratorio es **100% inofensivo**:
+> - El "malware" es el **archivo EICAR** — estándar de la industria para probar IDS/AV, no es código malicioso.
+> - El "ransomware" **no cifra nada**: solo renombra archivos señuelo y envía tráfico HTTP de práctica.
+> - Ningún proceso persiste al reinicio. Nada toca archivos fuera de `~/lab_ransom_ids/`.
 
 ---
 
-## 📋 Preparación (15 min)
+## ⚙️ Preparación (15 min)
 
-### Paso 1 — Clonar el repositorio
+El setup está dividido en **dos pasos** porque uno necesita Internet y el otro no.
 
-```bash
-git clone https://github.com/<tu-usuario>/lab-ids-ransomware-kali.git
-cd lab-ids-ransomware-kali
-chmod +x scripts/*.sh
-```
+### Paso 0-A — Instalar paquetes (requiere Internet / modo NAT)
 
-### Paso 2 — Preparar el entorno
+Asegúrate de que tu VM tiene el adaptador de red en **modo NAT** antes de ejecutar:
 
 ```bash
-sudo bash scripts/00_preparar_entorno.sh
+sudo bash scripts/00a_instalar_paquetes.sh
 ```
 
-Este script verifica que tienes instalados Snort, tcpdump, Python 3 e iptables, y crea la carpeta de trabajo con 8 archivos señuelo:
+Este script verifica la conexión, instala Snort, tcpdump, Python 3, iptables y net-tools, y te avisa si falta algo.
 
-```
-~/lab_ransom_ids/victima_documentos/
-  documento_confidencial_1.txt ... documento_confidencial_8.txt
+> **¿Ya tienes estas herramientas instaladas?** Salta directamente al Paso 0-B.
+
+### Paso 0-B — Preparar el laboratorio (funciona en Host-Only, sin Internet)
+
+Una vez instalados los paquetes, puedes cambiar la VM a **red Host-Only** y ejecutar:
+
+```bash
+sudo bash scripts/00b_preparar_lab.sh
 ```
 
-**❓ Pregunta 1:** ¿Por qué es importante verificar las herramientas antes de comenzar un laboratorio de seguridad?
+Este script crea la carpeta de trabajo, genera los 8 archivos señuelo y te muestra la IP de tu interfaz de red. Anota esa IP, la vas a necesitar.
+
+**IP de mi máquina:** `______________________`
 
 ---
 
-## 🔴 RETO 1 — Descarga de malware simulado y primera alerta (25 pts)
+## 🔴 RETO 1 — Descarga de malware simulado y primera alerta `[20 pts]`
 
-**Escenario:** Eres el analista SOC. Un empleado descargó un archivo sospechoso desde un servidor externo. Tu misión: detectarlo con Snort.
+**Escenario:** Un empleado descargó un archivo sospechoso desde Internet. Tú eres el analista SOC. Tu misión: detectar la descarga con Snort antes de que cause daño.
 
-### Terminal A — Inicia el servidor malicioso (rol: Atacante)
+### Terminal A — Inicia el servidor malicioso
 
 ```bash
 bash scripts/01_servidor_malicioso.sh
 ```
 
-Observa la IP que muestra el script. Anótala aquí: `______________________`
+Verás la IP y los archivos disponibles. El servidor sirve un archivo de prueba **EICAR** con nombre `Factura_Urgente_2026.pdf.exe`.
 
-### Terminal B — Inicia Snort (rol: Analista)
+### Terminal B — Inicia Snort
 
 ```bash
 sudo bash scripts/04_iniciar_snort.sh
 ```
 
-### Terminal C — Monitorea alertas en tiempo real (rol: Analista)
+Snort arrancará y comenzará a analizar el tráfico de red en tiempo real.
+
+### Terminal C — Abre el monitor de alertas
 
 ```bash
 bash scripts/04b_monitorear_alertas.sh
 ```
 
+Esta terminal quedará esperando alertas. Las mostrará en colores según el tipo de amenaza.
+
 ### Terminal D — Descarga el archivo sospechoso (rol: Víctima)
 
 ```bash
-wget http://<IP_ATACANTE>:8080/Factura_Urgente_2026.pdf.exe
+wget http://<TU_IP>:8080/Factura_Urgente_2026.pdf.exe
 ```
 
-### Verifica la alerta en Terminal C
+### Observa la alerta en Terminal C
 
-Deberás ver algo como:
+Deberías ver algo como:
 
 ```
 [**] [1:9000001:1] [LAB] Descarga archivo EICAR - Test malware detectado [**]
-[Priority: 1] {TCP} 192.168.56.20:8080 -> 192.168.56.10:xxxxx
+[Priority: 1] {TCP} <TU_IP>:8080 -> <TU_IP>:XXXXX
 ```
-
-**❓ Pregunta 2:** ¿Qué campos de la alerta Snort identifican al atacante y a la víctima?
-
-**❓ Pregunta 3:** ¿Por qué el archivo se llama `.pdf.exe`? ¿Qué técnica de ingeniería social representa?
-
-**❓ Pregunta 4:** Abre el archivo `snort_rules/lab_ransomware.rules` y examina la regla con `sid:9000001`. ¿Qué patrón busca en el tráfico?
 
 ---
 
-## 🟠 RETO 2 — Detectar el beacon de ransomware (25 pts)
+**❓ Pregunta 1:** ¿Qué campos de la alerta identifican al servidor origen y al destino?
 
-**Escenario:** Después de "infectarse", el equipo víctima se comunica con el servidor de Comando y Control (C2) del atacante. Debes detectar ese tráfico.
+**❓ Pregunta 2:** El archivo se llama `.pdf.exe`. ¿Qué técnica de engaño representa? ¿Por qué funciona en Windows?
 
-### Terminal A — Inicia el panel C2 de práctica (rol: Atacante)
+**❓ Pregunta 3:** Abre `snort_rules/lab_ransomware.rules` y busca la regla `sid:9000001`. ¿Qué cadena de texto busca en el tráfico? ¿Por qué esa cadena es suficiente para detectar el archivo?
+
+```bash
+cat snort_rules/lab_ransomware.rules
+```
+
+---
+
+## 🟠 RETO 2 — Detectar el beacon de ransomware `[20 pts]`
+
+**Escenario:** El equipo víctima ya está "infectado". Ahora el ransomware se comunica con el servidor de Comando y Control (C2) del atacante enviando beacons periódicos. Debes detectar ese tráfico.
+
+### Terminal A — Inicia el panel C2 de práctica
 
 ```bash
 python3 scripts/02_listener_c2.py
 ```
 
-### Terminal D — Ejecuta el simulador de IOC (rol: Víctima)
+Verás los beacons llegar en tiempo real.
+
+### Terminal D — Ejecuta el simulador de IOC
 
 ```bash
-python3 scripts/03_simulador_ioc.py <IP_ATACANTE>
+python3 scripts/03_simulador_ioc.py <TU_IP>
 ```
 
-Observa cómo el simulador:
-1. Renombra los archivos señuelo a `.locked`
-2. Deja una nota de rescate ficticia
-3. Envía beacons al C2
+El simulador hará tres cosas en orden:
+1. Comprobará si hay un kill switch activo.
+2. Renombrará los archivos señuelo a `.locked`.
+3. Enviará 5 beacons HTTP al panel C2.
 
-Verifica que Snort generó alertas en Terminal C.
+### Verifica en Terminal C que Snort generó alertas
 
-**❓ Pregunta 5:** ¿Cuántos beacons envió el simulador? ¿Cuántas alertas generó Snort?
+---
 
-**❓ Pregunta 6:** ¿Qué información aparece en la ruta `/beacon?id=...`? ¿Por qué un ransomware real enviría esta información al C2?
+**❓ Pregunta 4:** ¿Cuántos beacons se enviaron? ¿Cuántas alertas distintas generó Snort?
 
-**❓ Pregunta 7:** Revisa la carpeta `victima_documentos/`. ¿Qué diferencia hay con el estado inicial? ¿Qué hace un ransomware real en lugar de renombrar?
+**❓ Pregunta 5:** Ejecuta el siguiente comando y observa los archivos:
 
 ```bash
 ls ~/lab_ransom_ids/victima_documentos/
 ```
 
-**❓ Pregunta 8:** Dentro del directorio del proyecto, ejecuta esto para activar el kill switch:
+¿Qué cambió respecto al estado inicial? ¿Qué haría un ransomware real en lugar de renombrar?
+
+**❓ Pregunta 6 — Kill switch:** Activa el kill switch y vuelve a correr el simulador:
 
 ```bash
 touch killswitch.flag
-python3 scripts/03_simulador_ioc.py <IP_ATACANTE>
+python3 scripts/03_simulador_ioc.py <TU_IP>
 ```
 
-¿Qué ocurre ahora? ¿Qué es un kill switch en un ransomware real?
+¿Qué ocurre ahora? ¿Por qué WannaCry tenía un mecanismo similar?
 
 ---
 
-## 🔵 RETO 3 — Bloquear el C2 con iptables (25 pts)
+## 🔵 RETO 3 — Bloquear el C2 con iptables `[20 pts]`
 
-**Escenario:** Has identificado la IP del C2. Ahora debes bloquearla en el firewall de perímetro para que ningún otro equipo de la red pueda conectarse.
+**Escenario:** Identificaste la IP del C2. Ahora debes bloquearla en el firewall para que ningún equipo de la red pueda conectarse.
 
 ### Ver las reglas actuales del firewall
 
@@ -184,21 +196,21 @@ python3 scripts/03_simulador_ioc.py <IP_ATACANTE>
 sudo iptables -L FORWARD -v -n
 ```
 
-**❓ Pregunta 9:** ¿Qué significa que la política de la cadena FORWARD sea ACCEPT? ¿Es esto seguro por defecto?
+**❓ Pregunta 7:** ¿Cuál es la política actual de la cadena FORWARD? ¿Es seguro ese valor por defecto?
 
-### Bloquear el tráfico al servidor malicioso (puerto 8080)
-
-```bash
-sudo iptables -I FORWARD -p tcp -d <IP_ATACANTE> --dport 8080 -j DROP
-```
-
-### Bloquear el tráfico al C2 (puerto 4444)
+### Bloquear el servidor malicioso (puerto 8080)
 
 ```bash
-sudo iptables -I FORWARD -p tcp -d <IP_ATACANTE> --dport 4444 -j DROP
+sudo iptables -I FORWARD -p tcp --dport 8080 -j DROP
 ```
 
-### Verificar que las reglas fueron agregadas
+### Bloquear el C2 (puerto 4444)
+
+```bash
+sudo iptables -I FORWARD -p tcp --dport 4444 -j DROP
+```
+
+### Verificar las reglas
 
 ```bash
 sudo iptables -L FORWARD -v -n
@@ -207,85 +219,96 @@ sudo iptables -L FORWARD -v -n
 ### Intentar la descarga nuevamente
 
 ```bash
-wget http://<IP_ATACANTE>:8080/Factura_Urgente_2026.pdf.exe
-```
-
-**❓ Pregunta 10:** ¿Qué mensaje aparece ahora? ¿Por qué dice "Connection timed out" en lugar de "Connection refused"?
-
-**❓ Pregunta 11:** Escribe el comando iptables para bloquear **toda la IP del atacante** (cualquier puerto). ¿Es esto mejor o peor que bloquear solo los puertos específicos?
-
-```bash
-# Escribe tu respuesta aquí:
-sudo iptables -I FORWARD ____________________________________________
+wget http://<TU_IP>:8080/Factura_Urgente_2026.pdf.exe
 ```
 
 ---
 
-## 🟣 RETO 4 — Escribe tu propia regla Snort (25 pts)
+**❓ Pregunta 8:** ¿La descarga se completó? ¿Por qué dice "timed out" en lugar de "Connection refused"?
 
-**Escenario:** El atacante cambió el User-Agent de su simulador a `MiRansomware/2.0` para intentar evadir la regla existente. Debes escribir una nueva regla que lo detecte.
+**❓ Pregunta 9:** Escribe el comando para bloquear **toda la IP** del atacante en lugar de solo los puertos:
 
-### Tarea
+```bash
+# Tu respuesta:
+sudo iptables ________________________________________________
+```
 
-Abre el archivo `snort_rules/lab_ransomware.rules` con tu editor favorito:
+---
+
+## 🟣 RETO 4 — Escribe tu propia regla Snort `[20 pts]`
+
+**Escenario:** El atacante actualizó su herramienta y cambió el User-Agent a `MiRansomware/2.0`. La regla existente ya no lo detecta. Debes escribir una nueva.
+
+### Tu tarea
+
+Abre el archivo de reglas:
 
 ```bash
 nano snort_rules/lab_ransomware.rules
 ```
 
-Agrega una regla con **SID 9000010** que detecte el User-Agent `MiRansomware` y genere el mensaje `"[LAB] RETO4 - Nuevo agente C2 detectado"`.
+Agrega al final una regla con **SID 9000010** que:
+- Detecte el User-Agent `MiRansomware` en tráfico HTTP saliente.
+- Use el mensaje: `"[LAB] RETO4 - Nuevo agente C2 detectado"`.
 
-**Pista:** Usa como base la regla con `sid:9000003` que ya existe en el archivo.
+> **Pista:** Usa como modelo la regla `sid:9000003` que ya está en el archivo.
 
 ### Prueba tu regla
 
-Reinicia Snort para cargar la nueva regla y ejecuta nuevamente el simulador con el parámetro modificado (en el código fuente de `03_simulador_ioc.py`, cambia la línea `UA = "LabRansomSim/1.0"` por `UA = "MiRansomware/2.0"`).
-
-**❓ Pregunta 12:** Pega aquí la regla Snort que escribiste:
-
+En `scripts/03_simulador_ioc.py`, cambia la línea:
+```python
+UA = "LabRansomSim/1.0"
 ```
-# Tu regla:
-alert _______________________________________________________________
+por:
+```python
+UA = "MiRansomware/2.0"
 ```
 
-**❓ Pregunta 13:** ¿Qué significa el campo `rev:` en una regla Snort? ¿Por qué es importante llevar ese control?
+Reinicia Snort y vuelve a ejecutar el simulador. Si tu regla es correcta, deberías ver la nueva alerta.
 
 ---
 
-## 🏆 Reto BONUS — Captura el tráfico con tcpdump
+**❓ Pregunta 10:** Pega aquí la regla Snort que escribiste:
 
-Mientras el simulador envía beacons, captura el tráfico y analízalo:
-
-```bash
-# Terminal E — Capturar
-sudo tcpdump -i eth0 -w ~/lab_ransom_ids/capturas/beacon_captura.pcap &
-
-# Ejecutar el simulador...
-
-# Detener la captura
-fg   # llevar tcpdump al primer plano
-# Ctrl+C
-
-# Analizar la captura
-tcpdump -r ~/lab_ransom_ids/capturas/beacon_captura.pcap -A | grep -i beacon
+```
+alert __________________________________________________________
 ```
 
-**❓ Pregunta 14:** ¿Qué ventaja aporta tener un archivo PCAP al equipo de respuesta a incidentes?
+**❓ Pregunta 11:** ¿Qué significa el campo `rev:` en una regla Snort? ¿Por qué se incrementa cada vez que se modifica?
+
+---
+
+## 🏅 RETO BONUS — Captura PCAP con tcpdump `[+10 pts]`
+
+Captura el tráfico mientras el simulador envía beacons:
+
+```bash
+# Iniciar captura en segundo plano
+sudo tcpdump -i eth0 -w ~/lab_ransom_ids/capturas/beacon.pcap &
+
+# Ejecutar el simulador
+python3 scripts/03_simulador_ioc.py <TU_IP>
+
+# Detener la captura
+fg
+# Ctrl+C
+
+# Leer la captura
+tcpdump -r ~/lab_ransom_ids/capturas/beacon.pcap -A | grep -i beacon
+```
+
+**❓ Pregunta 12:** ¿Qué información del beacon puedes ver en el PCAP? ¿Por qué esto es útil en una investigación forense?
 
 ---
 
 ## ✅ Verificar tu puntuación
 
-Al finalizar todos los retos, ejecuta:
-
 ```bash
 bash scripts/06_verificar_flags.sh
 ```
 
-El script comprobará automáticamente los 5 retos y mostrará tu puntuación e insignia.
-
 | Puntuación | Insignia |
-|-----------|----------|
+|-----------|---------|
 | 100 pts   | 🥇 Cazador de Amenazas |
 | 60–80 pts | 🥈 Analista SOC Jr. |
 | 40–60 pts | 🥉 Aprendiz de Seguridad |
@@ -295,11 +318,13 @@ El script comprobará automáticamente los 5 retos y mostrará tu puntuación e 
 
 ## 🔄 Restaurar el sistema
 
-Al terminar, limpia todos los cambios:
+Al terminar o si quieres repetir el lab desde cero:
 
 ```bash
 bash scripts/05_restaurar_sistema.sh
 ```
+
+Esto revierte los archivos `.locked`, elimina la nota de rescate ficticia y limpia las reglas iptables del lab.
 
 ---
 
@@ -307,16 +332,16 @@ bash scripts/05_restaurar_sistema.sh
 
 | Término | Definición |
 |---------|-----------|
-| **IDS** | Sistema de Detección de Intrusiones: monitorea tráfico y genera alertas ante comportamientos sospechosos. |
-| **Snort** | IDS/IPS de código abierto creado por Martin Roesch, ahora mantenido por Cisco. |
-| **iptables** | Herramienta de filtrado de paquetes del kernel Linux; permite crear reglas de firewall. |
-| **EICAR** | Archivo de prueba estándar de la industria para verificar que un AV/IDS funciona correctamente. |
-| **C2 (Comando y Control)** | Servidor que un malware usa para recibir instrucciones y enviar datos robados. |
-| **Beacon** | Señal periódica que un malware envía al C2 para indicar que está activo. |
-| **Kill switch** | Mecanismo que detiene un malware si detecta una condición específica (como en WannaCry). |
-| **IOC** | Indicador de Compromiso: evidencia observable de que un sistema fue atacado. |
-| **PCAP** | Archivo de captura de paquetes de red (Packet Capture). |
+| **IDS** | Sistema de Detección de Intrusiones: monitorea el tráfico y genera alertas. |
+| **Snort** | IDS/IPS de código abierto. Usa reglas con `sid` único para identificar amenazas. |
+| **iptables** | Herramienta de firewall del kernel Linux para filtrar paquetes de red. |
+| **EICAR** | Archivo de prueba estándar para verificar que un IDS/AV funciona, sin riesgo real. |
+| **C2** | Servidor de Comando y Control: el atacante lo usa para dar órdenes al malware. |
+| **Beacon** | Señal periódica que el malware envía al C2 para indicar que está activo. |
+| **Kill switch** | Condición que detiene automáticamente un malware (como el de WannaCry en 2017). |
+| **IOC** | Indicador de Compromiso: evidencia observable de un sistema atacado. |
+| **PCAP** | Archivo de captura de paquetes de red para análisis forense. |
 
 ---
 
-*Laboratorio desarrollado con fines educativos. Todos los "ataques" son simulaciones inofensivas.*
+*Laboratorio educativo — todas las "amenazas" son simulaciones inofensivas en entorno controlado.*
