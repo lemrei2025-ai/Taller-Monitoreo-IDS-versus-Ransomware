@@ -1,0 +1,19 @@
+## Archivos generados por el laboratorio (no subir)
+victima_documentos/
+*.locked
+LEEME_RESCATE.txt
+killswitch.flag
+*.pcap
+/var/log/snort/
+
+## Python
+__pycache__/
+*.pyc
+*.pyo
+
+## Logs
+*.log
+
+## OS
+.DS_Store
+Thumbs.db
