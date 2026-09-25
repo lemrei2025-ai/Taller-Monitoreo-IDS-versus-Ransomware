@@ -88,24 +88,30 @@ lab-ids-ransomware-kali/
 - 2 GB RAM mínimo
 - VirtualBox o VMware
 
-### Instalación
+### Paso 1 — Clonar el repositorio
+
+> **Recomendado:** clonar en `/tmp` para evitar conflictos de rutas con repositorios anteriores.
 
 ```bash
-git clone https://github.com/<tu-usuario>/lab-ids-ransomware-kali.git
-cd lab-ids-ransomware-kali
+cd /tmp
+git clone https://github.com/lemrei2025-ai/Taller-Monitoreo-IDS-versus-Ransomware
+cd Taller-Monitoreo-IDS-versus-Ransomware
 chmod +x scripts/*.sh scripts/*.py
 ```
 
-### Setup (con adaptador NAT activo)
+> ¿Ya tienes el repositorio clonado en otra ubicación? También funciona desde ahí.
+> Los scripts calculan su propia ruta automáticamente — no dependen de `$HOME`.
+
+### Paso 2 — Instalar paquetes (requiere Internet / modo NAT)
 
 ```bash
 sudo bash scripts/00a_instalar_paquetes.sh
 ```
 
-### Preparar el lab (cambia a Host-Only primero)
+### Paso 3 — Preparar el lab (cambia a Host-Only primero)
 
 ```bash
-sudo bash scripts/00b_preparar_lab.sh
+bash scripts/00b_preparar_lab.sh
 ```
 
 ### Flujo del laboratorio — 4 terminales

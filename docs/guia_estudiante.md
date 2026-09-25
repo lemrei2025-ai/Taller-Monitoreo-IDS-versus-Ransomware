@@ -47,11 +47,24 @@ Al finalizar este laboratorio serás capaz de:
 > Este laboratorio es **100% inofensivo**:
 > - El "malware" es el **archivo EICAR** — estándar de la industria para probar IDS/AV, no es código malicioso.
 > - El "ransomware" **no cifra nada**: solo renombra archivos señuelo y envía tráfico HTTP de práctica.
-> - Ningún proceso persiste al reinicio. Nada toca archivos fuera de `~/lab_ransom_ids/`.
+> - Ningún proceso persiste al reinicio. Nada toca archivos fuera del directorio del repositorio (`data/`).
 
 ---
 
 ## ⚙️ Preparación (15 min)
+
+### Clonar el repositorio
+
+> **Importante:** clona en `/tmp` para evitar conflictos de rutas con sesiones anteriores.
+
+```bash
+cd /tmp
+git clone https://github.com/lemrei2025-ai/Taller-Monitoreo-IDS-versus-Ransomware
+cd Taller-Monitoreo-IDS-versus-Ransomware
+chmod +x scripts/*.sh scripts/*.py
+```
+
+Todos los archivos del lab (archivos señuelo, PCAP, servidor) se crean **dentro de este directorio**, no en `$HOME`. Puedes ejecutar los scripts con o sin `sudo` — siempre calcularán su propia ruta correctamente.
 
 El setup está dividido en **dos pasos** porque uno necesita Internet y el otro no.
 
@@ -170,7 +183,7 @@ El simulador hará tres cosas en orden:
 **❓ Pregunta 5:** Ejecuta el siguiente comando y observa los archivos:
 
 ```bash
-ls ~/lab_ransom_ids/victima_documentos/
+ls data/victima_documentos/
 ```
 
 ¿Qué cambió respecto al estado inicial? ¿Qué haría un ransomware real en lugar de renombrar?
@@ -178,6 +191,7 @@ ls ~/lab_ransom_ids/victima_documentos/
 **❓ Pregunta 6 — Kill switch:** Activa el kill switch y vuelve a correr el simulador:
 
 ```bash
+# Debes estar dentro del directorio del repositorio
 touch killswitch.flag
 python3 scripts/03_simulador_ioc.py <TU_IP>
 ```
@@ -283,8 +297,8 @@ alert __________________________________________________________
 Captura el tráfico mientras el simulador envía beacons:
 
 ```bash
-# Iniciar captura en segundo plano
-sudo tcpdump -i eth0 -w ~/lab_ransom_ids/capturas/beacon.pcap &
+# Iniciar captura en segundo plano (dentro del directorio del repo)
+sudo tcpdump -i any -w data/capturas/beacon.pcap &
 
 # Ejecutar el simulador
 python3 scripts/03_simulador_ioc.py <TU_IP>
@@ -294,7 +308,7 @@ fg
 # Ctrl+C
 
 # Leer la captura
-tcpdump -r ~/lab_ransom_ids/capturas/beacon.pcap -A | grep -i beacon
+tcpdump -r data/capturas/beacon.pcap -A | grep -i beacon
 ```
 
 **❓ Pregunta 12:** ¿Qué información del beacon puedes ver en el PCAP? ¿Por qué esto es útil en una investigación forense?
