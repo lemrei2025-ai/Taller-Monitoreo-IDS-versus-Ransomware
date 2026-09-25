@@ -15,13 +15,13 @@ para que Snort los detecte. NO cifra nada.
 
 ¿Qué NO hace?
   ✗ No cifra contenido con ningún algoritmo.
-  ✗ No toca archivos fuera de ~/lab_ransom_ids/victima_documentos/.
+  ✗ No toca archivos fuera del directorio data/victima_documentos/.
   ✗ No persiste al reinicio (no hay cron ni servicio).
   ✗ No se propaga a otros hosts.
   ✗ No recibe ni ejecuta comandos del C2.
 
 Uso (terminal 3, VM VÍCTIMA):
-    python3 03_simulador_ioc.py <IP_ATACANTE> [--beacons 5] [--puerto 4444]
+    python3 scripts/03_simulador_ioc.py <IP_ATACANTE> [--beacons 5] [--puerto 4444]
 """
 
 import os
@@ -33,9 +33,12 @@ import argparse
 import urllib.request
 import urllib.error
 
-SANDBOX = os.path.expanduser("~/lab_ransom_ids/victima_documentos")
-PATRON  = "documento_confidencial_*.txt"
-UA      = "LabRansomSim/1.0"
+# ── Rutas relativas al repositorio (no depende de $HOME) ─────
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+LAB_DIR    = os.path.dirname(SCRIPT_DIR)
+SANDBOX    = os.path.join(LAB_DIR, "data", "victima_documentos")
+PATRON     = "documento_confidencial_*.txt"
+UA         = "LabRansomSim/1.0"
 
 NOTA_RESCATE = """\
 ╔══════════════════════════════════════════════════════════╗
@@ -79,7 +82,8 @@ def main():
     print("╔═══════════════════════════════════════════════════╗")
     print("║  💣  Simulador IOC de Ransomware — LAB EDUCATIVO  ║")
     print("╚═══════════════════════════════════════════════════╝")
-    print(f"{NC}  C2: {base}  |  Beacons: {args.beacons}\n")
+    print(f"{NC}  C2: {base}  |  Beacons: {args.beacons}")
+    print(f"  Sandbox: {SANDBOX}\n")
 
     # 1 ── KILL SWITCH ──────────────────────────────────────────
     print(f"{BOLD}[1/4] Kill switch...{NC}")
@@ -91,8 +95,8 @@ def main():
 
     # 2 ── RENOMBRADO DE ARCHIVOS ───────────────────────────────
     if not os.path.isdir(SANDBOX):
-        print(f"\n{RED}[!] No existe {SANDBOX}")
-        print(f"    Ejecuta primero: bash scripts/00_preparar_entorno.sh{NC}")
+        print(f"\n{RED}[!] No existe el sandbox: {SANDBOX}")
+        print(f"    Ejecuta primero: bash scripts/00b_preparar_lab.sh{NC}")
         sys.exit(1)
 
     archivos = glob.glob(os.path.join(SANDBOX, PATRON))
@@ -122,7 +126,9 @@ def main():
 
     print(f"\n{CYAN}{BOLD}💀 Simulación terminada.{NC}")
     print(f"   Archivos 'bloqueados': {len(archivos)}")
-    print(f"   ¿Cuántas alertas generó Snort? Consulta: tail /var/log/snort/alert\n")
+    print(f"   ¿Cuántas alertas generó Snort?")
+    print(f"   → Snort 3:  sudo tail /var/log/snort/alert_fast.txt")
+    print(f"   → Snort 2:  sudo tail /var/log/snort/alert\n")
 
 
 if __name__ == "__main__":

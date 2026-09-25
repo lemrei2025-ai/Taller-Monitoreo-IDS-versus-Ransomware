@@ -10,13 +10,17 @@
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'
 BOLD='\033[1m'; NC='\033[0m'
 
-SANDBOX="$HOME/lab_ransom_ids/victima_documentos"
+# ── Rutas relativas al repositorio (no depende de $HOME) ─────
+LAB_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SANDBOX="$LAB_DIR/data/victima_documentos"
 
 echo -e "${CYAN}${BOLD}"
 echo "╔══════════════════════════════════════════════╗"
 echo "║     🔄  Restaurando sistema del LAB  🔄     ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${NC}"
+echo -e "  Sandbox: ${CYAN}$SANDBOX${NC}"
+echo
 
 # ── 1. Restaurar archivos .locked ────────────────────────────
 echo -e "${BOLD}[1/3] Restaurando archivos señuelo...${NC}"
@@ -51,4 +55,5 @@ sudo iptables -D FORWARD -p tcp --dport 4444 -j DROP 2>/dev/null \
   || echo "  (no había regla en puerto 4444)"
 
 echo -e "\n${GREEN}${BOLD}✅ Sistema restaurado. El laboratorio está limpio.${NC}"
-echo -e "   Para repetir desde el inicio: bash scripts/00_preparar_entorno.sh\n"
+echo -e "   Para repetir desde el inicio: bash scripts/00b_preparar_lab.sh"
+echo

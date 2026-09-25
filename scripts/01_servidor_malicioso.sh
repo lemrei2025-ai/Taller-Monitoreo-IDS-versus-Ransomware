@@ -13,7 +13,9 @@
 CYAN='\033[0;36m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BOLD='\033[1m'; NC='\033[0m'
 
-SRV_DIR="$HOME/lab_ransom_ids/servidor_c2"
+# ── Rutas relativas al repositorio (no depende de $HOME) ─────
+LAB_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SRV_DIR="$LAB_DIR/srv"
 PORT=8080
 FAKE_NAME="Factura_Urgente_2026.pdf.exe"
 
@@ -34,7 +36,7 @@ PS
 
 echo -e "${CYAN}${BOLD}"
 echo "╔══════════════════════════════════════════════╗"
-echo "║    🦠  Servidor Malicioso de Práctica  🦠    ║"
+echo "║    🦠  script servidor malware               ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${NC}"
 echo -e "${YELLOW}Archivos disponibles:${NC}"
