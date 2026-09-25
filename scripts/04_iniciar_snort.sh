@@ -13,10 +13,14 @@ RULES_FILE="$(cd "$(dirname "$0")/.." && pwd)/snort_rules/lab_ransomware.rules"
 LOG_DIR="/var/log/snort"
 
 # ── Detectar interfaz de red ──────────────────────────────────
-# Se usa 'any' para capturar en TODAS las interfaces (NAT + Host-Only).
-# Así Snort ve el tráfico sin importar qué adaptador usa VirtualBox.
-IFACE="any"
-IFACE_DISPLAY=$(ip -brief link show | grep -v '^lo' | awk '{print $1}' | paste -sd ',' -)
+# Snort 3 en Linux NO soporta '-i any': falla con "No codec for data
+# link type 113" (LINKTYPE_LINUX_SLL). Se usa la interfaz física real.
+#
+# Preferencia: interfaz UP con IP asignada → cualquier interfaz UP → primera no-lo
+IFACE=$(ip -brief addr show | grep -v '^lo' | awk '$3 != "" && $2 == "UP" {print $1; exit}')
+[ -z "$IFACE" ] && IFACE=$(ip -brief link show | grep -v '^lo' | awk '$2=="UP"{print $1; exit}')
+[ -z "$IFACE" ] && IFACE=$(ip -brief link show | grep -v '^lo' | awk '{print $1; exit}')
+IFACE_DISPLAY="$IFACE"
 
 # ── Detectar versión de Snort ─────────────────────────────────
 if ! command -v snort >/dev/null 2>&1; then
@@ -34,7 +38,7 @@ echo "║       🔍  Iniciando Snort IDS  🔍            ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${NC}"
 echo -e "  Versión  : ${GREEN}Snort $SNORT_VER (v${SNORT_MAJOR}.x)${NC}"
-echo -e "  Interfaz : ${GREEN}any (${IFACE_DISPLAY})${NC}"
+echo -e "  Interfaz : ${GREEN}$IFACE_DISPLAY${NC}"
 echo -e "  Reglas   : ${GREEN}$RULES_FILE${NC}"
 echo -e "  Logs     : ${GREEN}$LOG_DIR${NC}"
 echo
