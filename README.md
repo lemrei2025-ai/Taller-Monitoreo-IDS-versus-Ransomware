@@ -74,7 +74,8 @@ lab-ids-ransomware-kali/
 │   ├── 05_restaurar_sistema.sh      ← Revierte todos los cambios del lab
 │   └── 06_verificar_flags.sh        ← 🏆 Sistema CTF: verifica los 5 retos
 ├── snort_rules/
-│   └── lab_ransomware.rules         ← 9 reglas Snort personalizadas
+│   ├── lab_ransomware.rules         ← 10 reglas Snort personalizadas
+│   └── lab_snort.lua                ← Configuración Snort 3 mínima (sin binders)
 └── docs/
     └── guia_estudiante.md           ← Guía completa con 4 retos + 12 preguntas
 ```
@@ -146,7 +147,7 @@ bash scripts/06_verificar_flags.sh
 
 ## 🔧 Reglas Snort incluidas
 
-El archivo `snort_rules/lab_ransomware.rules` incluye 9 reglas que detectan:
+El archivo `snort_rules/lab_ransomware.rules` incluye 10 reglas (SIDs 9100001–9100010) que detectan:
 firma EICAR en payload, nombre de archivo malicioso en URI, User-Agent del simulador IOC,
 ruta `/beacon` al C2, consulta al kill switch, scripts PowerShell, conexiones al puerto 4444,
 descargas desde puerto 8080 y nombre de nota de rescate en tráfico de red.

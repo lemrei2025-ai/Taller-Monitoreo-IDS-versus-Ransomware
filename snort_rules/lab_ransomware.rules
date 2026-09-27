@@ -1,35 +1,48 @@
 # =============================================================
-# lab_ransomware.rules — Reglas Snort para el laboratorio
-# Compatible con Snort 2 y Snort 3
+# lab_ransomware.rules — Reglas Snort 3 para el laboratorio
+# Compatible con Snort 2.x y 3.x en Kali Linux
 # -------------------------------------------------------------
-# IMPORTANTE: cada regla ocupa UNA SOLA LÍNEA.
-# No usar \ para continuar líneas (es sintaxis bash, no Snort).
-# Se usa 'any' en lugar de $HOME_NET/$EXTERNAL_NET para no
-# depender de snort.conf.
-# Se omite 'nocase' — no compatible con todas las builds de
-# Snort 3 en Kali. El simulador envía las cadenas en el mismo
-# case exacto, por lo que no es necesario.
+# Se usa "alert tcp" con content: para inspeccionar el payload
+# TCP directamente. No depende del HTTP inspector ni de AppID,
+# lo que garantiza que las alertas disparen en cualquier puerto.
 # =============================================================
 
 # ─── RETO 1: Descarga del archivo de prueba EICAR ─────────────
-alert tcp any any -> any any (msg:"[LAB] Descarga EICAR - Test malware detectado"; content:"X5O!P%@AP[4"; classtype:trojan-activity; sid:9000001; rev:2;)
 
-alert tcp any any -> any any (msg:"[LAB] Descarga - Factura_Urgente en URI"; content:"Factura_Urgente"; classtype:trojan-activity; sid:9000002; rev:2;)
+# Firma EICAR en el cuerpo de la respuesta HTTP (servidor → cliente)
+alert tcp any 8080 -> any any (msg:"[LAB] Descarga EICAR - Test malware detectado"; content:"X5O!P%@AP[4"; classtype:trojan-activity; sid:9100001; rev:2;)
+
+# Nombre del archivo malicioso en la URI de la peticion (cliente → servidor)
+alert tcp any any -> any 8080 (msg:"[LAB] Descarga - Factura_Urgente en URI"; content:"Factura_Urgente"; classtype:trojan-activity; sid:9100002; rev:2;)
 
 # ─── RETO 2: Tráfico de Beacon / C2 ──────────────────────────
-alert tcp any any -> any any (msg:"[LAB] Beacon C2 - User-Agent LabRansomSim"; content:"LabRansomSim"; classtype:command-and-control; sid:9000003; rev:2;)
 
-alert tcp any any -> any any (msg:"[LAB] Ransomware C2 - Ruta /beacon detectada"; content:"GET /beacon"; classtype:command-and-control; sid:9000004; rev:2;)
+# User-Agent del simulador en la cabecera HTTP (cliente → servidor)
+alert tcp any any -> any 8080 (msg:"[LAB] Beacon C2 - User-Agent LabRansomSim"; content:"LabRansomSim"; classtype:command-and-control; sid:9100003; rev:2;)
 
-alert tcp any any -> any any (msg:"[LAB] Ransomware C2 - Consulta kill switch"; content:"GET /killswitch"; classtype:command-and-control; sid:9000005; rev:2;)
+# Ruta /beacon en la peticion HTTP (cliente → servidor)
+alert tcp any any -> any 8080 (msg:"[LAB] Ransomware C2 - Ruta /beacon detectada"; content:"GET /beacon"; classtype:command-and-control; sid:9100004; rev:2;)
+
+# Consulta al kill switch (cliente → servidor)
+alert tcp any any -> any 8080 (msg:"[LAB] Ransomware C2 - Consulta kill switch"; content:"GET /killswitch"; classtype:command-and-control; sid:9100005; rev:2;)
 
 # ─── RETO 3: Script PowerShell sospechoso ────────────────────
-alert tcp any any -> any any (msg:"[LAB] Descarga de script PowerShell sospechoso"; content:".ps1"; classtype:trojan-activity; sid:9000006; rev:2;)
+
+# Extension .ps1 en la URI descargada (cliente → servidor)
+alert tcp any any -> any 8080 (msg:"[LAB] Descarga de script PowerShell sospechoso"; content:".ps1"; classtype:trojan-activity; sid:9100006; rev:2;)
 
 # ─── RETO 4: Puertos no estándar del C2 ──────────────────────
-alert tcp any any -> any 4444 (msg:"[LAB] Conexion saliente a puerto 4444 - posible C2"; classtype:command-and-control; sid:9000007; rev:2;)
 
-alert tcp any 8080 -> any any (msg:"[LAB] Descarga desde servidor en puerto 8080"; classtype:trojan-activity; sid:9000008; rev:2;)
+# Conexion TCP saliente hacia puerto 4444 (C2 tipico de Metasploit)
+alert tcp any any -> any 4444 (msg:"[LAB] Conexion saliente a puerto 4444 - posible C2"; classtype:command-and-control; sid:9100007; rev:1;)
+
+# Cualquier peticion TCP al servidor en puerto 8080
+alert tcp any any -> any 8080 (msg:"[LAB] Peticion al servidor en puerto 8080"; classtype:trojan-activity; sid:9100008; rev:1;)
+
+# Cualquier respuesta del servidor en puerto 8080
+alert tcp any 8080 -> any any (msg:"[LAB] Respuesta del servidor en puerto 8080"; classtype:trojan-activity; sid:9100009; rev:1;)
 
 # ─── RETO 5 (BONUS): Nota de rescate en tráfico de red ───────
-alert tcp any any -> any any (msg:"[LAB] BONUS - Nota de rescate detectada en trafico"; content:"LEEME_RESCATE"; classtype:trojan-activity; sid:9000009; rev:2;)
+
+# Nombre de la nota de rescate en el payload HTTP
+alert tcp any any -> any 8080 (msg:"[LAB] BONUS - Nota de rescate detectada en trafico"; content:"LEEME_RESCATE"; classtype:trojan-activity; sid:9100010; rev:2;)

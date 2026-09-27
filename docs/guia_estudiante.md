@@ -133,7 +133,7 @@ wget http://<TU_IP>:8080/Factura_Urgente_2026.pdf.exe
 Deberías ver algo como:
 
 ```
-[**] [1:9000001:1] [LAB] Descarga archivo EICAR - Test malware detectado [**]
+[**] [1:9100001:2] [LAB] Descarga EICAR - Test malware detectado [**]
 [Priority: 1] {TCP} <TU_IP>:8080 -> <TU_IP>:XXXXX
 ```
 
@@ -143,7 +143,7 @@ Deberías ver algo como:
 
 **❓ Pregunta 2:** El archivo se llama `.pdf.exe`. ¿Qué técnica de engaño representa? ¿Por qué funciona en Windows?
 
-**❓ Pregunta 3:** Abre `snort_rules/lab_ransomware.rules` y busca la regla `sid:9000001`. ¿Qué cadena de texto busca en el tráfico? ¿Por qué esa cadena es suficiente para detectar el archivo?
+**❓ Pregunta 3:** Abre `snort_rules/lab_ransomware.rules` y busca la regla `sid:9100001`. ¿Qué cadena de texto busca en el tráfico? ¿Por qué esa cadena es suficiente para detectar el archivo?
 
 ```bash
 cat snort_rules/lab_ransomware.rules
@@ -261,11 +261,11 @@ Abre el archivo de reglas:
 nano snort_rules/lab_ransomware.rules
 ```
 
-Agrega al final una regla con **SID 9000010** que:
+Agrega al final una regla con **SID 9100011** que:
 - Detecte el User-Agent `MiRansomware` en tráfico HTTP saliente.
 - Use el mensaje: `"[LAB] RETO4 - Nuevo agente C2 detectado"`.
 
-> **Pista:** Usa como modelo la regla `sid:9000003` que ya está en el archivo.
+> **Pista:** Usa como modelo la regla `sid:9100003` que ya está en el archivo.
 
 ### Prueba tu regla
 
@@ -298,7 +298,8 @@ Captura el tráfico mientras el simulador envía beacons:
 
 ```bash
 # Iniciar captura en segundo plano (dentro del directorio del repo)
-sudo tcpdump -i any -w data/capturas/beacon.pcap &
+# Usamos -i lo porque en una sola VM el tráfico entre procesos va por loopback
+sudo tcpdump -i lo -w data/capturas/beacon.pcap &
 
 # Ejecutar el simulador
 python3 scripts/03_simulador_ioc.py <TU_IP>
@@ -339,6 +340,38 @@ bash scripts/05_restaurar_sistema.sh
 ```
 
 Esto revierte los archivos `.locked`, elimina la nota de rescate ficticia y limpia las reglas iptables del lab.
+
+---
+
+## 🔬 Notas Técnicas — Por qué el lab funciona así
+
+### ¿Por qué Snort escucha en `lo` (loopback)?
+
+En este lab todos los componentes (servidor malicioso, simulador, Snort) corren en la **misma Kali Linux**. Cuando el simulador conecta a `http://192.168.1.14:8080/`, el kernel de Linux detecta que esa IP pertenece a la propia máquina y enruta el tráfico por la interfaz **loopback (`lo`)**, no por la interfaz física (`eth0`).
+
+Puedes comprobarlo tú mismo:
+```bash
+# Captura en lo mientras ejecutas el simulador
+sudo tcpdump -i lo -n port 8080 &
+python3 scripts/03_simulador_ioc.py <TU_IP>
+# Verás los paquetes. Si capturas en eth0, no verás nada.
+```
+
+**Consecuencia:** Snort debe escuchar en `lo`, no en `eth0`. El script `04_iniciar_snort.sh` ya lo hace por defecto. Para un lab de dos VMs usa `export LAB_IFACE=eth0` antes de ejecutar el script.
+
+### ¿Por qué Snort usa la opción `-k none`?
+
+Linux utiliza una optimización llamada **TCP checksum offloading**: el kernel no calcula el checksum TCP al enviar por loopback porque confía en que el paquete no puede corromperse en la misma máquina. Cuando tcpdump (o Snort) captura esos paquetes *antes* de que se calcule el checksum, los ve con valor cero o incorrecto.
+
+Snort, por defecto, **descarta todos los paquetes con checksum inválido** antes de evaluar las reglas — con lo que nunca genera alertas en tráfico de loopback. La opción `-k none` le dice a Snort que omita esa validación.
+
+```bash
+# Sin -k none → 0 alertas (todos los paquetes se descartan)
+# Con -k none → alertas normales
+sudo snort -c lab_snort.lua -i lo -A alert_fast -l /var/log/snort -k none
+```
+
+Este comportamiento es **exclusivo del loopback**. En un lab de dos VMs no hace falta `-k none`.
 
 ---
 
